@@ -5,18 +5,18 @@ suite "url parsing suite":
   test "basic url": # if this fails, we're majestically screwed.
     let url = parse("https://example.com")
 
-    doAssert url.scheme == "https"
-    doAssert url.hostname == "example.com"
+    check url.scheme == "https"
+    check url.hostname == "example.com"
 
   test "url paths":
     let url = parse("https://example.com/this/is/a/very/real/path")
 
-    doAssert url.path == "this/is/a/very/real/path", url.path
+    check url.path == "this/is/a/very/real/path"
 
   test "url queries":
     let url = parse("https://example.com?this_is_a=very_real_query")
 
-    doAssert url.query == "this_is_a=very_real_query", url.query
+    check url.query == "this_is_a=very_real_query"
 
   test "default protocol ports":
     let
@@ -25,10 +25,10 @@ suite "url parsing suite":
       gemini = parse("gemini://example.com")
       https = parse("https://example.com")
     
-    doAssert http.port == 80'u, $http.port
-    doAssert https.port == 443'u, $https.port
-    doAssert ftp.port == 20'u, $ftp.port
-    doAssert gemini.port == 1965'u, $gemini.port
+    check http.port == 80'u
+    check https.port == 443'u
+    check ftp.port == 20'u
+    check gemini.port == 1965'u
 
   test "TLDs":
     let
@@ -40,17 +40,16 @@ suite "url parsing suite":
       dotCom = parse("https://google.com")
       dotIo = parse("https://icouldntthinkofacleverandfunnydomainthatendswith.io")
     
-    doAssert dotIn.getTld == ".gov.in", dotIn.getTld
-    doAssert dotRu.getTld == ".gov.ru", dotRu.getTld
-    doAssert dotUa.getTld == ".gov.ua", dotUa.getTld
-    doAssert dotUs.getTld == ".gov.us", dotUs.getTld
-    doAssert dotCom.getTld == ".com", dotCom.getTld
-    doAssert dotIo.getTld == ".io", dotIo.getTld
+    check dotIn.getTld == ".gov.in"
+    check dotRu.getTld == ".gov.ru"
+    check dotUa.getTld == ".gov.ua"
+    check dotUs.getTld == ".gov.us"
+    check dotCom.getTld == ".com"
+    check dotIo.getTld == ".io"
 
   test "url fragments":
     let url = parse("https://ferus.org#why-ferus-sucks")
-
-    doAssert url.fragment == "why-ferus-sucks", url.fragment
+    check url.fragment == "why-ferus-sucks"
 
   test "invalid hostname":
     expect URLParseError:

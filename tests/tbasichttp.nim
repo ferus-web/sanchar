@@ -9,5 +9,5 @@ suite "basic http client":
       parse("http://motherfuckingwebsite.com")
     )
 
-    doAssert resp.code == 200
-    doAssert resp.content.len > 0
+    check resp.code == 200
+    check resp.content.len > 0
