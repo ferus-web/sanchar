@@ -32,7 +32,9 @@ proc getHeader*(
       if header.key.toLowerAscii() == key.toLowerAscii():
         return some(header)
 
-proc getInt*(header: Header): int {.inline, gcsafe, noSideEffect, raises: [ValueError].} =
+proc getInt*(
+    header: Header
+): int {.inline, gcsafe, noSideEffect, raises: [ValueError].} =
   header.value.parseInt()
 
 proc getStr*(header: Header): string {.inline, gcsafe, noSideEffect.} =
