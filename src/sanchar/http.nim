@@ -16,7 +16,7 @@ import parse/[url], proto/http/[v1_1, v2, shared]
 type
   SocketDefect* = object of Defect
     ## Any defect related to socket instantiation raises this.
-  
+
   SSLNotLinkedDefect* = object of Defect
     ## Raised when a HTTPS URL is passed, but the code was not compiled with `-d:ssl`.
 
@@ -25,9 +25,7 @@ type
     http1_1
     http2
 
-  HttpClient* = object
-    ## The HTTP client object
-
+  HttpClient* = object ## The HTTP client object
     sock: Socket
     headers: seq[Header]
 
@@ -41,13 +39,12 @@ proc makeSocket*(ssl: bool = false): Socket {.inline, raises: [].} =
   try:
     sock = newSocket(AF_INET, SOCK_STREAM)
   except OSError as exc:
-    raise newException(
-      SocketDefect, "Failed to create socket for HTTP client: " & exc.msg
-    )
+    raise
+      newException(SocketDefect, "Failed to create socket for HTTP client: " & exc.msg)
 
   if ssl:
     when defined(ssl):
-      var ctx: SslContext 
+      var ctx: SslContext
 
       try:
         ctx = newContext()
@@ -63,9 +60,13 @@ proc makeSocket*(ssl: bool = false): Socket {.inline, raises: [].} =
       try:
         ctx.wrapSocket(sock)
       except SslError as exc:
-        raise newException(SocketDefect, "Failed to wrap socket in SSL context: " & exc.msg)
+        raise
+          newException(SocketDefect, "Failed to wrap socket in SSL context: " & exc.msg)
     else:
-      raise newException(SSLNotLinkedDefect, "Attempt to create SSL socket without SSL support; compile with `-d:ssl` to fix this!")
+      raise newException(
+        SSLNotLinkedDefect,
+        "Attempt to create SSL socket without SSL support; compile with `-d:ssl` to fix this!",
+      )
 
   sock
 
@@ -165,7 +166,10 @@ proc get*(
     when defined(ssl):
       sock = client.secureSock
     else:
-      raise newException(SSLNotLinkedDefect, "Attempt to connect to a HTTPS domain without SSL support, compile with `-d:ssl` to fix this!")
+      raise newException(
+        SSLNotLinkedDefect,
+        "Attempt to connect to a HTTPS domain without SSL support, compile with `-d:ssl` to fix this!",
+      )
 
   sock.connect(url.hostname(), Port(url.port()))
 
@@ -215,14 +219,17 @@ proc httpClient*(headers: Headers = @[]): HttpClient {.raises: [].} =
   ##  import sanchar
   ##
   ##  var client = httpClient()
-  var 
-    sock = makeSocket(ssl=false)
+  var
+    sock = makeSocket(ssl = false)
     client = HttpClient(sock: sock, headers: headers)
 
   when defined(ssl):
-    client.secureSock = makeSocket(ssl=true)
+    client.secureSock = makeSocket(ssl = true)
   else:
-    {.warning: "This program is being compiled without SSL support. HTTPS domains will not be reachable.".}
+    {.
+      warning:
+        "This program is being compiled without SSL support. HTTPS domains will not be reachable."
+    .}
 
   client
 

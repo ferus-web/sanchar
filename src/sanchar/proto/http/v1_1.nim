@@ -55,7 +55,7 @@ proc parseHttpStatusCode*(
   while curr notin Whitespace:
     curr = resp[pos]
 
-    if curr in {'0'..'9'}:
+    if curr in {'0' .. '9'}:
       statusRaw &= curr
 
     inc pos
@@ -120,7 +120,7 @@ proc parseResponse*(resp: string): HttpResponse {.noSideEffect.} =
   let (postHParsePos, headers) = parseHttpHeaders(postSParsePos, resp)
 
   httpResp.headers = headers
-  httpResp.content = resp[postHParsePos..resp.len - 1]
+  httpResp.content = resp[postHParsePos .. resp.len - 1]
 
   httpResp
 
