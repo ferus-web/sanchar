@@ -15,10 +15,13 @@
 ##  doAssert url.getTLD() == "com"
 
 import std/[strutils, tables]
+import punycode
 
 const
   DEFAULT_PROTO_PORTS =
     {"ftp": 20'u, "http": 80'u, "https": 443'u, "gemini": 1965'u}.toTable
+  ALLOWED_HOSTNAME_CHARS = {'a' .. 'z'} + {'0' .. '9'} + {'-', '.'}
+  PUNYCODE_PREFIX = "xn--"
 
 type
   ## An error that occured whilst initializing a URL, possibly due to bad arguments
@@ -309,9 +312,9 @@ proc newURL*(scheme, hostname, path, fragment: string, port: uint = 0): URL =
       url.port = DEFAULT_PROTO_PORTS[scheme]
     else:
       raise newException(
-          URLException,
-          "Port is 0 and \"" & scheme & "\" does not match any default protocol ports",
-        )
+        URLException,
+        "Port is 0 and \"" & scheme & "\" does not match any default protocol ports",
+      )
   else:
     url.port = port
 
@@ -327,6 +330,20 @@ Path(s): {url.path}
 Query: {url.query}
 Fragment: {url.fragment}
 """ ]#
+
+func encodeHostname(url: var URL) =
+  var encodedComponents: seq[string]
+
+  for component in url.hostname.split('.'):
+    var encodedComponent =
+      encode(component).strip(leading = false, trailing = true, chars = {'-'})
+
+    if encodedComponent != component:
+      encodedComponent = PUNYCODE_PREFIX & encodedComponent
+
+    encodedComponents.add(encodedComponent)
+
+  url.hostname = encodedComponents.join(".")
 
 proc parse*(parser: var URLParser, src: string): URL =
   ## Parse a string into a URL, granted it is not malformed.
@@ -352,9 +369,6 @@ proc parse*(parser: var URLParser, src: string): URL =
       if curr != ':':
         url.scheme &= curr
       else:
-        if curr.toLowerAscii() in {'a'..'z'}:
-          raise newException(URLParseError, "Invalid character in URL scheme: " & curr)
-
         parser.state = parseHostname
         pos += 3 # discard '//'
         continue
@@ -381,13 +395,13 @@ proc parse*(parser: var URLParser, src: string): URL =
       elif curr == '#':
         parser.state = parseFragment
         continue
-      elif curr in {'0'..'9'}:
+      elif curr in {'0' .. '9'}:
         url.portRaw &= curr
       else:
         raise newException(
-            URLParseError,
-            "Non-numeric character and non-terminator found in URL during port parsing!"
-          )
+          URLParseError,
+          "Non-numeric character and non-terminator found in URL during port parsing!",
+        )
     elif parser.state == parsePath:
       if curr == '#':
         parser.state = parseFragment
@@ -422,6 +436,12 @@ proc parse*(parser: var URLParser, src: string): URL =
     url.port = DEFAULT_PROTO_PORTS[url.scheme]
 
   parser.state = sInit
+
+  url.encodeHostname()
+
+  if not url.hostname.allCharsInSet(ALLOWED_HOSTNAME_CHARS):
+    raise newException(URLParseError, "Invalid char found in hostname")
+
   url
 
 proc newURLParser*(): URLParser {.inline, noSideEffect.} =
