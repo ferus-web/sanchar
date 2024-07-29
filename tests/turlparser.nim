@@ -32,10 +32,10 @@ suite "url parsing suite":
 
   test "TLDs":
     let
-      dotIn = parse("https://hell.gov.in")
-      dotRu = parse("https://cykablyad.gov.ru")
-      dotUa = parse("https://weneedfivebillionrockets.gov.ua")
-      dotUs = parse("https://killingiraqichildrentutorial.gov.us")
+      dotIn = parse("https://up.gov.in")
+      dotRu = parse("https://genproc.gov.ru")
+      dotUa = parse("https://bank.gov.ua")
+      dotUs = parse("https://health.gov.us")
 
       dotCom = parse("https://google.com")
       dotIo = parse("https://icouldntthinkofacleverandfunnydomainthatendswith.io")
@@ -58,11 +58,14 @@ suite "url parsing suite":
   test "punycode hostname":
     let url = parse("https://xn--80aswg.xn--p1ai/")
 
-    doAssert url.scheme == "https"
-    doAssert url.hostname == "xn--80aswg.xn--p1ai"
+    check url.scheme == "https"
+    check url.hostname == "xn--80aswg.xn--p1ai"
 
   test "non-ASCII hostname":
-    let url = parse("https://сайт.рф")
+    let 
+      url = parse("https://сайт.рф")
+      url2 = parse("https://xn--80aswg.xn--p1ai/")
 
-    doAssert url.scheme == "https"
-    doAssert url.hostname == "xn--80aswg.xn--p1ai"
+    check url.scheme == "https"
+    check url.hostname == "xn--80aswg.xn--p1ai"
+    check url.hostname == url2.hostname
