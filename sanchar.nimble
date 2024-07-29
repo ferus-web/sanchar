@@ -10,12 +10,13 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 2.0.0"
+requires "punycode >= 0.1.0"
 
 taskRequires "fmt", "nph >= 0.3.0"
 taskRequires "test", "drchaos >= 0.1.9"
 
 task fmt, "Format code":
-  exec "nph src/"
+  exec findExe("nph") & " src/"
 
 task docgen, "Generate documentation":
-  exec "nim doc --project --index:on --outdir:docs src/sanchar/http.nim"
+  selfExec "doc --project --index:on --outdir:docs src/sanchar/http.nim"

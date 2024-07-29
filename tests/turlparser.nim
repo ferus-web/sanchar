@@ -49,5 +49,20 @@ suite "url parsing suite":
 
   test "url fragments":
     let url = parse("https://ferus.org#why-ferus-sucks")
-
     check url.fragment == "why-ferus-sucks"
+
+  test "invalid hostname":
+    expect URLParseError:
+      let url = parse("https://inval!d.com")
+
+  test "punycode hostname":
+    let url = parse("https://xn--80aswg.xn--p1ai/")
+
+    doAssert url.scheme == "https"
+    doAssert url.hostname == "xn--80aswg.xn--p1ai"
+
+  test "non-ASCII hostname":
+    let url = parse("https://сайт.рф")
+
+    doAssert url.scheme == "https"
+    doAssert url.hostname == "xn--80aswg.xn--p1ai"
