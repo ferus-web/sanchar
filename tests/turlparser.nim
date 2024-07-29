@@ -62,7 +62,7 @@ suite "url parsing suite":
     doAssert url.scheme == "https"
     doAssert url.hostname == "xn--80aswg.xn--p1ai"
 
-  test "non-Latin hostname":
+  test "non-ASCII hostname":
     let url = parse("https://сайт.рф")
 
     doAssert url.scheme == "https"
