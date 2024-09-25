@@ -20,3 +20,6 @@ task fmt, "Format code":
 
 task docgen, "Generate documentation":
   selfExec "doc --project --index:on --outdir:docs src/sanchar/http.nim"
+
+task fuzzUrl, "Run LLVM's fuzzer against Sanchar's URL parser":
+  selfExec "c --define:release --define:speed --cc:clang -r tests/fuzz/url001.nim"
