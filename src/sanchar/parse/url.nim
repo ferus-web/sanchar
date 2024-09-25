@@ -345,6 +345,9 @@ func encodeHostname(url: var URL) =
 
   url.hostname = encodedComponents.join(".")
 
+func urlError*(message: string) {.raises: [URLParseError].} =
+  raise newException(URLParseError, message)
+
 proc parse*(parser: var URLParser, src: string): URL =
   ## Parse a string into a URL, granted it is not malformed.
   ##
@@ -369,10 +372,19 @@ proc parse*(parser: var URLParser, src: string): URL =
       if curr != ':':
         url.scheme &= curr
       else:
+        if url.scheme.len < 1:
+          urlError("URL is missing scheme")
+
         parser.state = parseHostname
         pos += 3 # discard '//'
-        continue
+        if pos < src.len and src[pos - 1] == '/' and src[pos - 2] == '/':
+          continue
+        else:
+          urlError("The scheme is supposed to be followed by two double slashes")
     elif parser.state == parseHostname:
+      if url.scheme.len < 1:
+        urlError("Failed to parse hostname as the scheme was not provided")
+
       if curr == '/':
         parser.state = parsePath
         pos += 1
@@ -388,6 +400,9 @@ proc parse*(parser: var URLParser, src: string): URL =
       else:
         url.hostname &= curr
     elif parser.state == parsePort:
+      if url.scheme.len < 1:
+        urlError("Failed to parse hostname as the scheme was not provided")
+
       if curr == '/':
         parser.state = parsePath
         pos += 1
@@ -403,6 +418,9 @@ proc parse*(parser: var URLParser, src: string): URL =
           "Non-numeric character and non-terminator found in URL during port parsing!",
         )
     elif parser.state == parsePath:
+      if url.scheme.len < 1:
+        urlError("Failed to parse hostname as the scheme was not provided")
+
       if curr == '#':
         parser.state = parseFragment
         continue
@@ -412,12 +430,18 @@ proc parse*(parser: var URLParser, src: string): URL =
       else:
         url.path &= curr
     elif parser.state == parseFragment:
+      if url.scheme.len < 1:
+        urlError("Failed to parse hostname as the scheme was not provided")
+
       if curr == '#':
         inc pos
         continue
 
       url.fragment &= curr
     elif parser.state == parseQuery:
+      if url.scheme.len < 1:
+        urlError("Failed to parse hostname as the scheme was not provided")
+
       if curr == '?':
         inc pos
         continue
@@ -440,6 +464,7 @@ proc parse*(parser: var URLParser, src: string): URL =
   url.encodeHostname()
 
   if not url.hostname.allCharsInSet(ALLOWED_HOSTNAME_CHARS):
+    urlError("")
     raise newException(URLParseError, "Invalid char found in hostname")
 
   url
