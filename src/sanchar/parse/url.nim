@@ -403,20 +403,35 @@ proc parse*(parser: var URLParser, src: string): URL =
       if url.scheme.len < 1:
         urlError("Failed to parse hostname as the scheme was not provided")
 
+      template finalizePort =
+        if url.portRaw.len > 0:
+          url.port = try:
+            parseUint(url.portRaw)
+          except ValueError:
+            urlError("URL port is invalid: " & url.portRaw)
+            0'u
+        elif url.scheme in DEFAULT_PROTO_PORTS:
+          url.port = DEFAULT_PROTO_PORTS[url.scheme]
+
+        if url.port > uint(uint16.high):
+          urlError("URL port is out of range")
+
       if curr == '/':
+        finalizePort
         parser.state = parsePath
         pos += 1
         continue
       elif curr == '#':
+        finalizePort
         parser.state = parseFragment
         continue
       elif curr in {'0' .. '9'}:
         url.portRaw &= curr
       else:
-        raise newException(
-          URLParseError,
-          "Non-numeric character and non-terminator found in URL during port parsing!",
-        )
+        urlError("Invalid character found in port string: " & curr)
+      
+      if pos < src.len:
+        finalizePort
     elif parser.state == parsePath:
       if url.scheme.len < 1:
         urlError("Failed to parse hostname as the scheme was not provided")
@@ -454,18 +469,12 @@ proc parse*(parser: var URLParser, src: string): URL =
 
     inc pos
 
-  if url.portRaw.len > 0:
-    url.port = parseUint(url.portRaw)
-  elif url.scheme in DEFAULT_PROTO_PORTS:
-    url.port = DEFAULT_PROTO_PORTS[url.scheme]
-
   parser.state = sInit
 
   url.encodeHostname()
 
   if not url.hostname.allCharsInSet(ALLOWED_HOSTNAME_CHARS):
-    urlError("")
-    raise newException(URLParseError, "Invalid char found in hostname")
+    urlError("Invalid character found in hostname")
 
   url
 
