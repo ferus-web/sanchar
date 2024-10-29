@@ -1,7 +1,9 @@
 ## A mostly compliant implementation of the HTTP/1.1 protocol
 ## This is not meant to be used directly, as it only implements the base of the HTTP protocol.
 
-import std/[options, strutils, strformat, net, parseutils], shared, ../../parse/url
+import std/[options, strutils, strformat, net, parseutils]
+import ./shared
+import ../../parse/url
 
 const Terminators = {'\t', '\v', '\r', '\n', '\f'}
 
@@ -180,6 +182,9 @@ proc fetchResponse*(socket: Socket): Option[tuple[headers: string, body: seq[str
       var endStr = newString 2
       let readLen2 {.used.} = socket.recv(chunk[0].addr, contentLength.int)
   else:
+    if contentLength < 1:
+      return
+
     var chunk = newString(contentLength)
     let readLen {.used.} = socket.recv(chunk[0].addr, contentLength.int)
     chunks.add(chunk)
