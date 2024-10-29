@@ -14,7 +14,7 @@
 ##  doAssert url.getHostname() == "google.com"
 ##  doAssert url.getTLD() == "com"
 
-import std/[strutils, tables]
+import std/[options, strutils, tables]
 import punycode
 
 const
@@ -46,6 +46,10 @@ type
   URLParser* = object
     state: URLParserState
 
+  BlobURL* = object
+    kind*: string
+    buffer*: seq[byte]
+
   ## The URL type, contains everything for a URL
   URL* = object
     # scheme     hostname                   path
@@ -61,29 +65,34 @@ type
     fragment: string ## The fragment of the URL.
     query: string ## The query of the URL.
 
+    blob: Option[BlobURL]
+
     parsedScheme: bool
     parsedHostname: bool
     parsedPort: bool
     parsedPath: bool
     parsedFragment: bool
 
-proc `scheme=`*(url: var URL, scheme: string) {.inline, gcsafe.} =
-  url.scheme = scheme
+proc `scheme=`*(url: var URL, scheme: sink string) {.inline, gcsafe.} =
+  url.scheme = move(scheme)
 
-proc `hostname=`*(url: var URL, hostname: string) {.inline, gcsafe.} =
-  url.hostname = hostname
+proc `hostname=`*(url: var URL, hostname: sink string) {.inline, gcsafe.} =
+  url.hostname = move(hostname)
 
-proc `port=`*(url: var URL, port: uint) {.inline, gcsafe.} =
-  url.port = port
+proc `port=`*(url: var URL, port: sink uint) {.inline, gcsafe.} =
+  url.port = move(port)
 
-proc `path=`*(url: var URL, path: string) {.inline, gcsafe.} =
-  url.path = path
+proc `path=`*(url: var URL, path: sink string) {.inline, gcsafe.} =
+  url.path = move(path)
 
-proc `fragment=`*(url: var URL, fragment: string) {.inline, gcsafe.} =
-  url.fragment = fragment
+proc `fragment=`*(url: var URL, fragment: sink string) {.inline, gcsafe.} =
+  url.fragment = move(fragment)
 
-proc `query=`*(url: var URL, query: string) {.inline, gcsafe.} =
-  url.query = query
+proc `query=`*(url: var URL, query: sink string) {.inline, gcsafe.} =
+  url.query = move(query)
+
+proc `blobEntry=`*(url: var URL, blob: sink BlobURL) {.inline, gcsafe.} =
+  url.blob = some(move(blob))
 
 proc `=destroy`*(url: URL) =
   `=destroy`(url.scheme)
@@ -142,7 +151,7 @@ proc `$`*(url: URL): string {.noSideEffect.} =
   if url.query.len > 0:
     result &= '?' & url.query
 
-proc scheme*(url: URL): string {.inline.} =
+func scheme*(url: URL): string {.inline.} =
   ## Get the scheme of a URL
   ##
   ## .. code-block:: Nim
@@ -161,7 +170,7 @@ proc scheme*(url: URL): string {.inline.} =
   ##  doAssert url.getScheme() == "https"
   url.scheme
 
-proc hostname*(url: URL): string {.inline, gcsafe, noSideEffect.} =
+func hostname*(url: URL): string {.inline, gcsafe.} =
   ## Get the hostname of a URL
   ##
   ## .. code-block:: Nim
@@ -180,7 +189,7 @@ proc hostname*(url: URL): string {.inline, gcsafe, noSideEffect.} =
   ##  doAssert url.getHostname() == "google.com"
   url.hostname
 
-proc port*(url: URL): uint {.inline, gcsafe, noSideEffect.} =
+func port*(url: URL): uint {.inline, gcsafe.} =
   ## Get the port of the URL which is an unsigned integer
   ##
   ## .. code-block:: Nim
@@ -197,13 +206,27 @@ proc port*(url: URL): uint {.inline, gcsafe, noSideEffect.} =
   ##  )
   ##
   ##  doAssert url.getPort() == 443
-  if url.port == 0:
-    if url.scheme in DEFAULT_PROTO_PORTS:
-      return DEFAULT_PROTO_PORTS[url.scheme]
-
   url.port
 
-proc path*(url: URL): string {.inline, gcsafe, noSideEffect.} =
+func blob*(url: URL): Option[BlobURL] {.inline, gcsafe.} =
+  ## Get the blob URL entry of the URL, granted that the URL has one
+  ## .. code-block:: Nim
+  ## import sanchar
+  ## import std/options
+  ## 
+  ##  let url = URL(
+  ##    scheme: "https",
+  ##    hostname: "google.com",
+  ##    port: 443,
+  ##    portRaw: "443",
+  ##    path: "",
+  ##    fragment: "",
+  ##    query: ""
+  ##  )
+  ##
+  ##  doAssert url.blob() == none(BlobURL)
+
+func path*(url: URL): string {.inline, gcsafe.} =
   ## Get the path of the URL, granted the URL has one
   ##
   ## .. code-block:: Nim
@@ -222,7 +245,7 @@ proc path*(url: URL): string {.inline, gcsafe, noSideEffect.} =
   ##  doAssert url.getPath() == ""
   url.path
 
-proc fragment*(url: URL): string {.inline, gcsafe, noSideEffect.} =
+func fragment*(url: URL): string {.inline, gcsafe.} =
   ## Get the fragment of the URL, granted it exists
   ##
   ## .. code-block:: Nim
@@ -241,7 +264,7 @@ proc fragment*(url: URL): string {.inline, gcsafe, noSideEffect.} =
   ##  doAssert url.getFragment() == ""
   url.fragment
 
-proc getTLD*(url: URL): string {.noSideEffect.} =
+func getTLD*(url: URL): string =
   ## Get the TLD domain for this URL. It does not need to be a real TLD (eg. test.blahblahblah).
   ##
   ## .. code-block:: Nim
@@ -275,7 +298,7 @@ proc getTLD*(url: URL): string {.noSideEffect.} =
 
   tld
 
-proc query*(url: URL): string {.inline, gcsafe, noSideEffect.} =
+func query*(url: URL): string {.inline, gcsafe.} =
   ## Get the query segment of the URL, granted there was one.
   ##
   ## .. code-block:: Nim
@@ -292,10 +315,9 @@ proc query*(url: URL): string {.inline, gcsafe, noSideEffect.} =
   ##  )
   ##
   ##  doAssert url.getQuery() == ""
-
   url.query
 
-proc newURL*(scheme, hostname, path, fragment: string, port: uint = 0): URL =
+func newURL*(scheme, hostname, path, fragment: string, port: uint = 0): URL =
   ## Create a new URL object, takes in the scheme, hostname, path, fragment and port.
   ##
   ## .. code-block:: Nim
@@ -317,19 +339,6 @@ proc newURL*(scheme, hostname, path, fragment: string, port: uint = 0): URL =
       )
   else:
     url.port = port
-
-#[
-  Convert the URL into a human-friendly string representation
-]#
-#[ proc `$`*(url: URL): string {.inline.} =
-  fmt"""
-Scheme: {url.scheme}
-Hostname: {url.hostname}
-Port: {url.port}
-Path(s): {url.path}
-Query: {url.query}
-Fragment: {url.fragment}
-""" ]#
 
 func encodeHostname(url: var URL) =
   var encodedComponents: seq[string]
@@ -478,7 +487,7 @@ proc parse*(parser: var URLParser, src: string): URL =
 
   url
 
-proc newURLParser*(): URLParser {.inline, noSideEffect.} =
+func newURLParser*(): URLParser {.inline, noSideEffect.} =
   ## Create a new URL parser
   ## Initialize a new URLParser with the state set to sInit
   ##
